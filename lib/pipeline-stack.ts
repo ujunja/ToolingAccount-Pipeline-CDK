@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Key } from 'aws-cdk-lib/aws-kms';
-import { Role } from 'aws-cdk-lib/aws-iam';
+import { ArnPrincipal, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Repository } from 'aws-cdk-lib/aws-codecommit';
 import { BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
@@ -13,89 +13,142 @@ export class PipeLineStack extends cdk.Stack {
     super(scope, id, props);
 
     // 既存のKMS KEY
-    // 入力必要
-    const myKey = Key.fromKeyArn(
+    const tokyoKey = Key.fromKeyArn(
       this,
       'EYES_ArtifactStore_KMSKey',
-      `arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/a2d9b566-3c0e-4539-b06a-04e3be27b222`
-    );
-    // 既存のKMS KEY
-    // 入力必要
-    const northKey = Key.fromKeyArn(
-      this,
-      'EYES_ArtifactStore_KMSKey_Tokyo',
-      `arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/d8cb9c97-67da-4459-aa39-da14c41ab16b`
+      `${this.node.tryGetContext('TokyoKmsKeyArn')}`
     );
 
-    // CodePipeline Action Stage
+    // 既存のKMS KEY
+    const singaporeKey = Key.fromKeyArn(
+      this,
+      'EYES_ArtifactStore_KMSKey_Singapore',
+      `${this.node.tryGetContext('SingaporeKmsKeyArn')}`
+    );
+
+
+    // `arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CodeCommit-Action-Role`,
+    
+    // CodePipeline Action Stage - CodeCommit
     const CodeCommitActionRole = Role.fromRoleArn(
       this,
       'CodeCommitActionRole',
-      `arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-CodeCommit-Action-Role`,
+      cdk.Fn.importValue('CodeCommitActionRoleArn'),
       {
         mutable: false
       }
     )
+    // CodePipeline Action Stage - CodeBuild
     const CodeBuildActionRole = Role.fromRoleArn(
       this,
       'CodeBuildActionRole',
-      `arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-CodeBuild-Action-Role`,
+      `arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CodeBuild-Action-Role`,
       {
         mutable: false
       }
     )
+    // CodePipeline Action Stage - Toonling Account Deploy
     const CloudformationActionRole = Role.fromRoleArn(
       this,
       'CloudformationctionRole',
-      `arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-Cloudformation-Action-Role`,
+      `arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-Cloudformation-Action-Role`,
       {
         mutable: false
       }
     )
+
+    // TenantAccountのCrossAccountロール = Deploy-Tokyo Action Stageのロール
+    const CrossAccountRole = Role.fromRoleArn(
+      this,
+      'CrossAccountRole',
+      `arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-Cross-Account-Role`,
+      {
+        mutable: false
+      }
+    )
+
+    // Tooling AccoungのSingapore KMS KeyにTenant AccountのTenantCloudFormationRole復号化権限付与
+    const keyPolicy = new PolicyStatement({
+      principals: [
+        new ArnPrincipal(`arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-Cross-Account-Role`),
+        new ArnPrincipal(`arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-CloudFormation-Deployment-Role`),
+			],
+			actions: [
+				'kms:Decrypt',
+        'kms:DescribeKey'
+			],
+      resources: [
+        '*'
+      ]
+    })
+
+    tokyoKey.addToResourcePolicy(keyPolicy);
 
     // CodeBuild ROLE
     const CodeBuildRole = Role.fromRoleArn(
       this,
       'ProdCodeBuildRole',
-      `arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-CodeBuild-Service-Role`,
+      `arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CodeBuild-Service-Role`,
       {
         mutable: false,
       }
     );
 
+    // Tooling AccountのCfnロール
     const CloudFormationRole = Role.fromRoleArn(
       this,
-      'ProdDeploymentRole',
-      `arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-CloudFormation-Deployment-Role`,
+      'ToolingCfnDeploymentRole',
+      `arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CloudFormation-Deployment-Role`,
       {
         mutable: false,
       }
     );
 
-    // existing s3 bucket
-    const artifactBucket = Bucket.fromBucketName(
+    // Tenant AccountのCfnロール
+    const TenantCloudFormationRole = Role.fromRoleArn(
       this,
-      'import existing bucket',
-      'codepipeline-ap-southeast-1-872854859043'
+      'TenantCfnDeploymentRole',
+      `arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-CloudFormation-Deployment-Role`,
+      {
+        mutable: false,
+      }
     );
-    const artifactBucketNorth = Bucket.fromBucketArn(
+    
+    // Tooling AccoungのSingapore KMS KeyにTenant AccountのTenantCloudFormationRole復号化権限付与
+    // tokyoKey.grantDecrypt(TenantCloudFormationRole);
+
+    const artifactStoreSingapore = Bucket.fromBucketAttributes(this, 'artifactStoreSingapore', {
+      bucketName: `${this.node.tryGetContext('SingaporeArtifactStore')}`,
+      region: 'ap-southeast-1',
+      encryptionKey: singaporeKey,
+    })
+
+    const artifactStoreTokyo = Bucket.fromBucketAttributes(
       this,
-      'import existing bucket north',
-      'arn:aws:s3:::codepipeline-ap-northeast-bucket-lswn'
-    );
+      'import existing bucket tokyo',
+      {
+        bucketName: `${this.node.tryGetContext('TokyoArtifactStore')}`,
+        region: `${this.node.tryGetContext('ToolingAccountRegion')}`,
+        encryptionKey: tokyoKey,
+      });
+
+    
     const commit_repository = Repository.fromRepositoryName(
       this,
       'repo_id',
-      'repo-199836234156'
+      `${this.node.tryGetContext('CodeCommitRepoName')}`
     );
 
     // CodePipeline 구조에서 ArtifactStores 를 사용하고 싶다면 crossRegionReplicationBuckets
+    // pipelineName :	The name of the pipeline.
+    // crossAccountKeys : KMS keys for cross-account deployments
+    // crossRegionReplicationBuckets : A map of region to S3 bucket name used for cross-region CodePipeline.
     const pipeline = new Pipeline(this, 'eye-password-change-api-pipeline', {
       pipelineName: 'eye-password-change-api-pipeline',
-      crossAccountKeys: false,
+      crossAccountKeys: true,
       crossRegionReplicationBuckets: {
-        'ap-southeast-1': artifactBucket,
-        'ap-northeast-1': artifactBucketNorth,
+        'ap-southeast-1': artifactStoreSingapore,
+        'ap-northeast-1': artifactStoreTokyo,
       },
     });
 
@@ -109,14 +162,14 @@ export class PipeLineStack extends cdk.Stack {
           repository: commit_repository,
           output: SourceArtifact,
           branch: 'main',
-          role: CodeCommitActionRole
+          // role: CodeCommitActionRole          
         }),
       ],
     });
 
     const BuildArtifact = new Artifact('BuildArtifact');
 
-    // LinuxBuildImage
+    // Codpipeline - Build Stage
     pipeline.addStage({
       stageName: 'Build',
       actions: [
@@ -129,15 +182,16 @@ export class PipeLineStack extends cdk.Stack {
               buildImage: LinuxBuildImage.STANDARD_5_0,
             },
             buildSpec: BuildSpec.fromSourceFilename('buildspec.yml'),
-            encryptionKey: myKey,
+            encryptionKey: singaporeKey,
             role: CodeBuildRole,
-            projectName: 'CdkBuildProject'
+            projectName: `${this.node.tryGetContext('CodeBuildProName')}`
           }),
-          role: CodeBuildActionRole
+          // role: CodeBuildActionRole
         }),
       ],
     });
 
+    // Codpipeline - Deploy Singapore Stage
     pipeline.addStage({
       stageName: 'Deploy-Singapore',
       actions: [
@@ -152,8 +206,28 @@ export class PipeLineStack extends cdk.Stack {
           ],
           extraInputs: [SourceArtifact],
           deploymentRole: CloudFormationRole,
-          role: CloudformationActionRole,
-          region: 'ap-southeast-1',
+          // role: CloudformationActionRole,
+          region: `${this.node.tryGetContext("ToolingAccountRegion")}`
+        }),
+      ],
+    });
+
+    // Codpipeline - Deploy Tokyo Stage
+    pipeline.addStage({
+      stageName: 'Deploy-Tokyo',
+      actions: [
+        new codepipeline_actions.CloudFormationCreateUpdateStackAction({
+          actionName: 'Deploy-Tokyo',
+          stackName: 'eye-passwordchange-stack-tokyo',
+          templatePath: BuildArtifact.atPath('tokyo-package-template.yaml'),
+          adminPermissions: true,
+          cfnCapabilities: [
+            cdk.CfnCapabilities.ANONYMOUS_IAM,
+            cdk.CfnCapabilities.AUTO_EXPAND,
+          ],
+          deploymentRole: TenantCloudFormationRole,
+          role: CrossAccountRole,
+          region: `${this.node.tryGetContext("TenantAccountRegion")}`,
         }),
       ],
     });

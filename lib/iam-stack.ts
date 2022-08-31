@@ -10,7 +10,7 @@ export class IamStack extends cdk.Stack {
 		// CodePipeline 디폴트 Role 에 들어감
 		const CodeBuildLogPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/CdkBuildProject*:*`
+				`arn:aws:logs:${this.node.tryGetContext('ToolingAccountRegion')}:${this.node.tryGetContext('ToolingAccountId')}:log-group:/aws/codebuild/${this.node.tryGetContext('CodeBuildProName')}*:*`
 			],
 			actions: [
 				'logs:CreateLogGroup',
@@ -19,20 +19,21 @@ export class IamStack extends cdk.Stack {
 			]
 		});
 
+		// CodeCoomit RepoからSourceをもらうポリシー
 		const CodeBuildPullPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codecommit:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:repo-199836234156`
+				`arn:aws:codecommit:${this.node.tryGetContext('ToolingAccountRegion')}:${this.node.tryGetContext('ToolingAccountId')}:${this.node.tryGetContext('CodeCommitRepoName')}`
 			],
 			actions: [
 				'codecommit:GitPull'
 			]
 		});
 
-		// Kms Key 복호화 Policy
+		// Kms Key 復号化 Policy
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:kms:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:key/a2d9b566-3c0e-4539-b06a-04e3be27b222`,
-				`arn:aws:kms:ap-northeast-1:${cdk.Stack.of(this).account}:key/d8cb9c97-67da-4459-aa39-da14c41ab16b`
+				`${this.node.tryGetContext('SingaporeKmsKeyArn')}`,
+				`${this.node.tryGetContext('TokyoKmsKeyArn')}`
 			],
 			actions: [
 				'kms:Decrypt',
@@ -46,7 +47,7 @@ export class IamStack extends cdk.Stack {
 		// CodeCoomit Action Stage Policy
 		const CodeCommitActionPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codecommit:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:repo-199836234156`
+				`arn:aws:codecommit:${this.node.tryGetContext('ToolingAccountRegion')}:${this.node.tryGetContext('ToolingAccountId')}:${this.node.tryGetContext('CodeCommitRepoName')}`
 			],
 			actions: [
 				'codecommit:GetBranch',
@@ -60,7 +61,7 @@ export class IamStack extends cdk.Stack {
 		// CodeBuild Action Stage Policy
 		const CodeBuildActionPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codebuild:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:project/CdkBuildProject`
+				`arn:aws:codebuild:${this.node.tryGetContext('ToolingAccountRegion')}:${this.node.tryGetContext('ToolingAccountId')}:project/${this.node.tryGetContext('CodeBuildProName')}`
 			],
 			actions: [
 				'codebuild:BatchGetBuilds',
@@ -73,7 +74,7 @@ export class IamStack extends cdk.Stack {
 		// PassRole
 		const CloudformationActionPassRolePolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:iam::${cdk.Stack.of(this).account}:role/CDK-CloudFormation-Deployment-Role`
+				`arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CloudFormation-Deployment-Role`
 			],
 			actions: [
 				'iam:PassRole'
@@ -82,7 +83,7 @@ export class IamStack extends cdk.Stack {
 		// CloudFormation
 		const CloudformationActionDeployPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:cloudformation:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:stack/*`
+				`arn:aws:cloudformation:${this.node.tryGetContext('ToolingAccountRegion')}:${this.node.tryGetContext('ToolingAccountId')}:stack/*`
 			],
 			actions: [
 				'cloudformation:*'
@@ -92,8 +93,8 @@ export class IamStack extends cdk.Stack {
 		// S3 Bucket 전체 Policy
 		const s3BucketFullPolicy = new PolicyStatement({
 			resources: [
-				'arn:aws:s3:::codepipeline-ap-southeast-1-872854859043/*',
-				'arn:aws:s3:::codepipeline-ap-northeast-bucket-lswn/*'
+				`arn:aws:s3:::${this.node.tryGetContext('SingaporeArtifactStore')}/*`,
+				`arn:aws:s3:::${this.node.tryGetContext('TokyoArtifactStore')}/*`
 			],
 			actions: [
 				's3:GetObject*',
@@ -108,7 +109,7 @@ export class IamStack extends cdk.Stack {
 		// 도쿄 리전 버켓에 업로드하는 정책
 		const UploadTokyoBucketPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:s3:::codepipeline-ap-northeast-bucket-lswn/*`
+				`arn:aws:s3:::${this.node.tryGetContext('TokyoArtifactStore')}/*`
 			],
 			actions: [
 				's3:PutObject'
@@ -118,11 +119,23 @@ export class IamStack extends cdk.Stack {
 		// 싱가포르 리전의 버킷으로부터 오브젝트를 가져오는 정책 
 		const GetSingaporeBucketPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:s3:::codepipeline-ap-southeast-1-872854859043/*`
+				`arn:aws:s3:::${this.node.tryGetContext('SingaporeArtifactStore')}/*`
 			],
 			actions: [
 				's3:GetObject'
 			],
+		})
+
+		const CodepipelineAssumeRole = new PolicyStatement({
+			resources: [
+				`arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CodeCommit-Action-Role`,
+				`arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CodeBuild-Action-Role`,
+				`arn:aws:iam::${this.node.tryGetContext('ToolingAccountId')}:role/CDK-CloudFormation-Deployment-Role`,
+				`arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-Cross-Account-Role`
+			],
+			actions: [
+				'sts:AssumeRole'
+			]
 		})
 
 		// CodePipeline 디폴트 역할
@@ -134,11 +147,12 @@ export class IamStack extends cdk.Stack {
 		CodePipelineRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CodePipelineRole.addToPrincipalPolicy(s3BucketFullPolicy);
 		CodePipelineRole.addToPrincipalPolicy(CodeBuildLogPolicy);
+		CodePipelineRole.addToPrincipalPolicy(CodepipelineAssumeRole);
 
 		// CodeCommit Action Stage역할
 		const CodeCommitActionRole = new Role(this, 'CodeCommitAction_Role', {
 			roleName: 'CDK-CodeCommit-Action-Role',
-			assumedBy: new AccountPrincipal(`${cdk.Stack.of(this).account}`)
+			assumedBy: new AccountPrincipal(`${this.node.tryGetContext('ToolingAccountId')}`)
 		})
 
 		CodeCommitActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
@@ -148,7 +162,7 @@ export class IamStack extends cdk.Stack {
 		// CodeCommit Action Stage 역할
 		const CodeBuildActionRole = new Role(this, 'CodeBuildAction_Role', {
 			roleName: 'CDK-CodeBuild-Action-Role',
-			assumedBy: new AccountPrincipal(`${cdk.Stack.of(this).account}`)
+			assumedBy: new AccountPrincipal(`${this.node.tryGetContext('ToolingAccountId')}`)
 		})
 
 		CodeBuildActionRole.addToPrincipalPolicy(CodeBuildActionPolicy);
@@ -156,7 +170,7 @@ export class IamStack extends cdk.Stack {
 		// CodeCommit Action Stage 역할
 		const CloudformationActionRole = new Role(this, 'CloudFormationAction_Role', {
 			roleName: 'CDK-Cloudformation-Action-Role',
-			assumedBy: new AccountPrincipal(`${cdk.Stack.of(this).account}`)
+			assumedBy: new AccountPrincipal(`${this.node.tryGetContext('ToolingAccountId')}`)
 		})
 
 		CloudformationActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
@@ -176,17 +190,26 @@ export class IamStack extends cdk.Stack {
 		CodeBuildRole.addToPrincipalPolicy(CodeBuildLogPolicy);
 
 		//ManagedPolicy 를 Attach 하려면 FromRole 로는 안된다... 무조건 Create 단계에서...
-		const CloudFormationRole = new Role(this, 'Sample_role', {
+		const CfnDeploymentRole = new Role(this, 'CloudFormation_Deploymenty_Role', {
 			roleName: 'CDK-CloudFormation-Deployment-Role',
 			assumedBy: new ServicePrincipal('cloudformation.amazonaws.com'),
 		});
 
+		// addManagedPolicy : cdk.aws_iam.IManagedPolicy形式の
+		// fromAwsManagedPolicyName : 名前でAWS Management Policyの情報修得
 		// https://bobbyhadz.com/blog/managed-policy-aws-cdk
-		CloudFormationRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSCloudFormationFullAccess'));
-		CloudFormationRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSLambda_FullAccess'));
-		CloudFormationRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonAPIGatewayAdministrator'));
-		CloudFormationRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('IAMFullAccess'));
-		CloudFormationRole.addToPrincipalPolicy(DecryptKmsPolicy);
-		CloudFormationRole.addToPrincipalPolicy(GetSingaporeBucketPolicy);
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSCloudFormationFullAccess'));
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSLambda_FullAccess'));
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonAPIGatewayAdministrator'));
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('IAMFullAccess'));
+		CfnDeploymentRole.addToPrincipalPolicy(DecryptKmsPolicy);
+		CfnDeploymentRole.addToPrincipalPolicy(GetSingaporeBucketPolicy);
+
+
+		// 이걸 사용하려면 Toolinf Account CodeBuild, CloudFormation 공유한다는 전제조건이 없어야만 한다
+		new cdk.CfnOutput(this, 'CodeCommitActionRoleArnOutPut', {
+			value: CodeCommitActionRole.roleArn,
+			exportName: 'CodeCommitActionRoleArn',
+		  });
   }
 }
