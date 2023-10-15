@@ -65,7 +65,7 @@ cdk init --language typescript
 ```bash
 ※ Tooling Accountで実行
 cdk deploy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack
-※ Tenant Accountで実行 -> 事前にcredentials設定(TenantAccount用)をしてください。
+※ Tenant Accountで実行 → 事前にcredentials設定(TenantAccount用)をしてください。
 cdk deploy CrossAccountRoleStack --profile tenant
 ※ Tooling Accountで実行
 cdk deploy PipeLineStack
