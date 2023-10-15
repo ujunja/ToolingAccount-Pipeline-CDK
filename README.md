@@ -71,7 +71,7 @@ cdk deploy CrossAccountRoleStack --profile tenant
 cdk deploy PipeLineStack
 # binディレクトリのcdk-app.tsで指定したスタック名で特定のスタックだけ実行することができる。 
 ```
-## CDK 削除y
+## CDK 削除
 ```bash
 ※ 全体削除
 cdk destroy --all
