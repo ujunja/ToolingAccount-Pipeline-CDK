@@ -17,15 +17,15 @@
     ]
   },
   "context": {
-    "ToolingAccountId": "199836234156",
-    "ToolingAccountRegion": "ap-southeast-1",
-    "TenantAccountId": "972565036278",
-    "TenantAccountRegion": "ap-northeast-1",
-    "TokyoKmsKeyArn": "arn:aws:kms:ap-northeast-1:199836234156:key/d8cb9c97-67da-4459-aa39-da14c41ab16b",
-    "SingaporeKmsKeyArn": "arn:aws:kms:ap-southeast-1:199836234156:key/a2d9b566-3c0e-4539-b06a-04e3be27b222",
-    "SingaporeArtifactStore": "codepipeline-ap-southeast-1-872854859043",
-    "TokyoArtifactStore": "codepipeline-ap-northeast-bucket-lswn",
     "CodeCommitRepoName": "repo-199836234156",
-    "CodeBuildProName": "CdkBuildProject"
+    "CodeBuildProName": "CdkBuildProject",
+    "DeploymentActionRole": "CDK-Cloudformation-Action-Role",
+    "DeploymentRole": "CDK-CloudFormation-Deployment-Role",
+    "CommitActionRole": "CDK-CodeCommit-Action-Role",
+    "BuildActionRole": "CDK-CodeBuild-Action-Role",
+    "CrossAccountRole": "CDK-Cross-Account-Role",
+    "CodepipelineRole": "CDK-CodePipeline-Service-Role",
+    "CodeBuildRole": "CDK-CodeBuild-Service-Role",
+    "PipelineName": "LswnPipeline"
   }
 }

@@ -2,14 +2,23 @@ import * as cdk from 'aws-cdk-lib';
 import { AccountPrincipal, ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
+interface CrossAccountRoleProps extends cdk.StackProps {
+	tenantKmsArn: string,
+	tenantArtifactStore: string,
+	toolingAccount: string,
+	tenantAccount: string,
+	tenantRegion: string,
+  }
+  
+
 export class CrossAccountRoleStack extends cdk.Stack {
-    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    constructor(scope: Construct, id: string, props: CrossAccountRoleProps) {
       super(scope, id, props);
 
     // Tooling AccountのKms Key アクセスポリシー
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				this.node.tryGetContext('TokyoKmsKeyArn')
+				props.tenantKmsArn
 			],
 			actions: [
 				'kms:Decrypt',
@@ -23,19 +32,19 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		// Tooling AccountのArtifact Store アクセスポリシー
     const GetTokyoBucketPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:s3:::${this.node.tryGetContext('TokyoArtifactStore')}/*`
+				`arn:aws:s3:::${props.tenantArtifactStore}/*`
 			],
 			actions: [
 				's3:GetObject*',
-        's3:GetBucket*',
-        's3:List*',
+        		's3:GetBucket*',
+        		's3:List*',
 			]
 		})
 
 		// CloudFormaton DeploymentロールにCrossAccountの権限をPassするポリシー
 		const CrossAccountPassRolePolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:iam::${this.node.tryGetContext('TenantAccountId')}:role/CDK-CloudFormation-Deployment-Role`
+				`arn:aws:iam::${props.toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
 			],
 			actions: [
 				'iam:PassRole'
@@ -45,7 +54,7 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		// CrossAccountロールが使えるCloudformation権限のポリシー
 		const CloudFormationDeploymentRole = new PolicyStatement({
 			resources: [
-				`arn:aws:cloudformation:${this.node.tryGetContext('TenantAccountRegion')}:${this.node.tryGetContext('TenantAccountId')}:stack/*`
+				`arn:aws:cloudformation:${props.tenantRegion}:${props.tenantAccount}:stack/*`
 			],
 			actions: [
 				'cloudformation:*'
@@ -55,7 +64,7 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		// CrossAccount ロール
 		const CrossAccountRole = new Role(this, 'Cross_Account_Role', {
 			roleName: 'CDK-Cross-Account-Role',
-			assumedBy: new AccountPrincipal(this.node.tryGetContext('ToolingAccountId'))
+			assumedBy: new AccountPrincipal(props.toolingAccount)
 		})
 
 		// CrossAccount ロールにポリシーをアタッチ
@@ -66,7 +75,7 @@ export class CrossAccountRoleStack extends cdk.Stack {
 
 		// Cloudformation Deployment ロール
 		const CfnDeploymentRole = new Role(this, 'CloudFormation_Deploymenty_Role', {
-			roleName: 'CDK-CloudFormation-Deployment-Role',
+			roleName: this.node.tryGetContext('DeploymentRole'),
 			assumedBy: new ServicePrincipal('cloudformation.amazonaws.com')
 		})
 
