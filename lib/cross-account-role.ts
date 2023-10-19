@@ -44,7 +44,8 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		// CloudFormaton DeploymentロールにCrossAccountの権限をPassするポリシー
 		const CrossAccountPassRolePolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:iam::${props.toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
+				// `arn:aws:iam::${props.toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
+				`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
 			],
 			actions: [
 				'iam:PassRole'
@@ -83,6 +84,8 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSLambda_FullAccess'));
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonAPIGatewayAdministrator'));
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('IAMFullAccess'));
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('ResourceGroupsandTagEditorFullAccess'));
+		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('CloudWatchApplicationInsightsFullAccess'));
 		CfnDeploymentRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CfnDeploymentRole.addToPrincipalPolicy(GetTokyoBucketPolicy);
   }

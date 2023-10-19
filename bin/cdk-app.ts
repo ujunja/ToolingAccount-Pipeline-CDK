@@ -5,7 +5,7 @@ import { PipeLineStack } from '../lib/pipeline-stack';
 import { IamStack } from '../lib/iam-stack';
 import { CrossAccountRoleStack } from '../lib/cross-account-role';
 import { ArtifactStack } from '../lib/artifact-stack';
-import { env } from 'process';
+import { ParameterStoreStack } from '../lib/parameter-store';
 
 const app = new cdk.App();
 
@@ -54,6 +54,19 @@ cdk.Tags.of(toolingRegionArtifactStack).add('Class', 'Artifact Stack');
 cdk.Tags.of(tenantRegionArtifactStack).add('Project', 'cdk-lswn');
 cdk.Tags.of(tenantRegionArtifactStack).add('Class', 'Artifact Stack');
 
+
+const parameterStoreStack = new ParameterStoreStack(app, 'ParameterStoreStack',{
+  env: {
+    account: process.env.TOOLING_ACCOUNT,  // Tooling Account 
+    region: process.env.TOOLING_ACCOUNT_REGION,  // Tooling Accountのリージョン
+  },
+  toolingKmsArn: process.env.TOOLING_REGION_KEY_ARN || "",
+  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
+})
+
+//iamStackで作られる全てのAWSリソースにタグをアタッチ
+cdk.Tags.of(parameterStoreStack).add('Project', 'cdk-lswn');
+cdk.Tags.of(parameterStoreStack).add('Class', 'Parameter Store Stack');
 
 // CodePipeline 作成スタック
 // CrossRegion 作成時には、envに必ずregionを作成する必要があり
@@ -107,3 +120,5 @@ const crossAccountRoleStack = new CrossAccountRoleStack(app, 'CrossAccountRoleSt
 
 cdk.Tags.of(crossAccountRoleStack).add('Project', 'cdk-lswn');
 cdk.Tags.of(crossAccountRoleStack).add('Class', 'CrossAccountRole');
+
+

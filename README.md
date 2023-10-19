@@ -1,11 +1,17 @@
-# AWS CDKは？
+
+# SAMで作成したコードのCI/CDデプロイ(CDK)
+
+## AWS CDKは？
 最新のプログラミング言語を使用してクラウドインフラストラクチャをコードとして定義し、それを AWS CloudFormationを通じてデプロイするためのオープンソースのソフトウェア開発フレームワーク
 
-# 準備項目
+## 準備項目
  - AWSアカウント
  - AWS CLI
  - IDE(Visual Studio Codeなど)
  - Node.js
+
+## デプロイするSAMコードのリポジトリ
+ - https://github.com/ujunja/cdk-deploy-example-app
 
 ## CDK Cliインストール
 グローバル環境にインストール
@@ -38,7 +44,6 @@ mkdir cdk-demo
 cd cdk-demo
 cdk init --language typescript
 ```
-
 ## 環境変数設定リスト
  - TOOLING_ACCOUNT
  - TOOLING_ACCOUNT_REGION
@@ -64,7 +69,7 @@ cdk init --language typescript
 ## CDK デプロイ手順
 ```bash
 ※ Tooling Accountで実行
-cdk deploy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack
+cdk deploy IamStack ParameterStoreStack ToolingRegionArtifactStack TenantRegionArtifactStack
 ※ Tenant Accountで実行 → 事前にcredentials設定(TenantAccount用)をしてください。
 cdk deploy CrossAccountRoleStack --profile tenant
 ※ Tooling Accountで実行

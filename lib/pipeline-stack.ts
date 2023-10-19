@@ -1,10 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
+import { CfnCapabilities } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { ArnPrincipal, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Repository } from 'aws-cdk-lib/aws-codecommit';
-import { BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 
@@ -17,7 +18,14 @@ interface PipelineProps extends cdk.StackProps {
   tenantArtifactStore: string
 }
 
+
 export class PipeLineStack extends cdk.Stack {
+  
+  private readonly CFN_CAPABILITIES_LIST: CfnCapabilities[] = [
+    CfnCapabilities.ANONYMOUS_IAM, 
+    CfnCapabilities.AUTO_EXPAND
+  ];
+
   constructor(scope: Construct, id: string, props: PipelineProps) {
     super(scope, id, props);
 
@@ -200,7 +208,17 @@ export class PipeLineStack extends cdk.Stack {
             environment: {
               buildImage: LinuxBuildImage.STANDARD_5_0,
             },
-            buildSpec: BuildSpec.fromSourceFilename('buildspec.yml'),
+            environmentVariables: {
+              toolingBucket: {
+                  type: BuildEnvironmentVariableType.PLAINTEXT,
+                  value: props.toolingArtifactStore
+              },
+              tenantBucket: {
+                type: BuildEnvironmentVariableType.PLAINTEXT,
+                value: props.tenantArtifactStore
+              }
+            },
+            buildSpec: BuildSpec.fromSourceFilename('buildspec.yaml'),
             encryptionKey: toolingKey,
             role: CodeBuildRole,
             projectName: `${this.node.tryGetContext('CodeBuildProName')}`
@@ -219,7 +237,7 @@ export class PipeLineStack extends cdk.Stack {
         new codepipeline_actions.CloudFormationCreateUpdateStackAction({
           actionName: 'Deploy-Tooling',
           stackName: 'lswn-deploy-stack-tooling',
-          templatePath: BuildArtifact.atPath('singapore-package-template.yaml'),
+          templatePath: BuildArtifact.atPath('tooling-package-template.yaml'),
           adminPermissions: true,
           cfnCapabilities: [
             cdk.CfnCapabilities.ANONYMOUS_IAM,
@@ -241,7 +259,7 @@ export class PipeLineStack extends cdk.Stack {
         new codepipeline_actions.CloudFormationCreateUpdateStackAction({
           actionName: 'Deploy-Tenant',
           stackName: 'lswn-deploy-stack-tenant',
-          templatePath: BuildArtifact.atPath('tokyo-package-template.yaml'),
+          templatePath: BuildArtifact.atPath('tenant-package-template.yaml'),
           adminPermissions: true,
           cfnCapabilities: [
             cdk.CfnCapabilities.ANONYMOUS_IAM,

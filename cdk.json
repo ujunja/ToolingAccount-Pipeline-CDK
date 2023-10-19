@@ -17,7 +17,7 @@
     ]
   },
   "context": {
-    "CodeCommitRepoName": "repo-199836234156",
+    "CodeCommitRepoName": "cdk-deploy-example-app",
     "CodeBuildProName": "CdkBuildProject",
     "DeploymentActionRole": "CDK-Cloudformation-Action-Role",
     "DeploymentRole": "CDK-CloudFormation-Deployment-Role",
