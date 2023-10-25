@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Alias, Key } from 'aws-cdk-lib/aws-kms';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import { ArnPrincipal, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Repository } from 'aws-cdk-lib/aws-codecommit';
@@ -15,14 +15,12 @@ import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
  * @extends {StackProps}
  */
 interface PipelineProps extends cdk.StackProps {
-  // toolingKmsArn: string,
-  // tenantKmsArn: string,
+  toolingKmsArn: string,
+  tenantKmsArn: string,
   tenantAccount: string,
   tenantRegion: string,
   toolingArtifactStore: string,
   tenantArtifactStore: string,
-  toolingKeyName: string,
-  tenantKeyName: string
 }
 
 export class PipeLineStack extends cdk.Stack {
@@ -72,14 +70,14 @@ export class PipeLineStack extends cdk.Stack {
     const toolingKey = Key.fromKeyArn(
       this,
       'ArtifactStore_KMSKey_Tooling',
-      `arn:aws:kms:${props.env?.region}:${props.env?.account}:alias/` + props.toolingKeyName
+      props.toolingKmsArn
     );
 
     //TENANT KMS KEY
     const tenantKey = Key.fromKeyArn(
       this,
       'ArtifactStore_KMSKey_Tenant',
-      `arn:aws:kms:${props.tenantRegion}:${props.env?.account}:alias/` + props.tenantKeyName
+      props.tenantKmsArn
     );
 
     //tenantアカウントは、tenantリージョンのみ復号化権限必要
@@ -89,7 +87,6 @@ export class PipeLineStack extends cdk.Stack {
     const CodepipelineRole = Role.fromRoleArn(
       this,
       'CodepipelineRole',
-      // cdk.Fn.importValue('CodeCommitActionRoleArn'),
       `arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('CodepipelineRole')}`,
       {
         mutable: false

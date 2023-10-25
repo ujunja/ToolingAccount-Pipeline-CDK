@@ -9,8 +9,8 @@ import { ManagedPolicy, Role, PolicyStatement, ServicePrincipal, AccountPrincipa
  * @extends {StackProps}
  */
 interface IamProps extends cdk.StackProps {
-	toolingKeyName: string,
-	tenantKeyName: string
+	toolingKeyArn: string,
+	tenantKeyArn: string
 	tenantAccount: string,
 	tenantRegion: string,
 	toolingArtifactStore: string,
@@ -44,11 +44,12 @@ export class IamStack extends cdk.Stack {
 			]
 		});
 
+
 		//Kms復号化Policy
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:kms:${props.env?.region}:${props.env?.account}:alias/` + props.toolingKeyName,
-				`arn:aws:kms:${props.tenantRegion}:${props.env?.account}:alias/` + props.tenantKeyName
+				props.toolingKeyArn,
+				props.tenantKeyArn
 			],
 			actions: [
 				'kms:Decrypt',
@@ -155,7 +156,6 @@ export class IamStack extends cdk.Stack {
 		CodePipelineRole.addToPrincipalPolicy(s3BucketFullPolicy);
 		CodePipelineRole.addToPrincipalPolicy(CodeBuildLogPolicy);
 		CodePipelineRole.addToPrincipalPolicy(CodepipelineAssumeRole);
-		CodePipelineRole.addToPrincipalPolicy(DecryptKmsPolicy);
 
 		//CodeCommit Action Stagロール
 		const CodeCommitActionRole = new Role(this, 'CodeCommitAction_Role', {
@@ -166,7 +166,6 @@ export class IamStack extends cdk.Stack {
 		CodeCommitActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CodeCommitActionRole.addToPrincipalPolicy(s3BucketFullPolicy);
 		CodeCommitActionRole.addToPrincipalPolicy(CodeCommitActionPolicy);
-		CodeCommitActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
 
 		//CodeBuild Action Stageロール
 		const CodeBuildActionRole = new Role(this, 'CodeBuildAction_Role', {
@@ -197,7 +196,7 @@ export class IamStack extends cdk.Stack {
 		CodeBuildRole.addToPrincipalPolicy(s3BucketFullPolicy);
 		CodeBuildRole.addToPrincipalPolicy(CodeBuildPullPolicy);
 		CodeBuildRole.addToPrincipalPolicy(CodeBuildLogPolicy);
-		CodeBuildRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMReadOnlyAccess'));
+		// CodeBuildRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMReadOnlyAccess'));
 
 		//ManagedPolicy 를 Attach 하려면 FromRole 로는 안된다... 무조건 Create 단계에서...
 		const CfnDeploymentRole = new Role(this, 'CloudFormation_Deploymenty_Role', {

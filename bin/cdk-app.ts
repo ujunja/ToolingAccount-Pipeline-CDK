@@ -46,8 +46,8 @@ const iamStack = new IamStack(app, 'IamStack', {
     account: process.env.TOOLING_ACCOUNT || "",
     region: process.env.TOOLING_ACCOUNT_REGION || "",
   },
-  toolingKeyName: toolingKmsKey,
-  tenantKeyName: tenantKmsKey,
+  tenantKeyArn: process.env.TENANT_REGION_KEY_ARN || "",
+  toolingKeyArn: process.env.TOOLING_REGION_KEY_ARN || "",
   tenantAccount: process.env.TENANT_ACCOUNT || "",
   tenantRegion: process.env.TENANT_ACCOUNT_REGION || "",
   toolingArtifactStore: process.env.TOOLING_REGION_BUCKET || "",
@@ -92,20 +92,6 @@ cdk.Tags.of(toolingRegionArtifactStack).add('Class', 'Artifact Stack');
 cdk.Tags.of(tenantRegionArtifactStack).add('Project', 'cdk-lswn');
 cdk.Tags.of(tenantRegionArtifactStack).add('Class', 'Artifact Stack');
 
-
-// const parameterStoreStack = new ParameterStoreStack(app, 'ParameterStoreStack',{
-//   env: {
-//     account: process.env.TOOLING_ACCOUNT,  // Tooling Account 
-//     region: process.env.TOOLING_ACCOUNT_REGION,  // Tooling Accountのリージョン
-//   },
-//   toolingKmsArn: process.env.TOOLING_REGION_KEY_ARN || "",
-//   tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
-// })
-
-//iamStackで作られる全てのAWSリソースにタグをアタッチ
-// cdk.Tags.of(parameterStoreStack).add('Project', 'cdk-lswn');
-// cdk.Tags.of(parameterStoreStack).add('Class', 'Parameter Store Stack');
-
 // CodePipeline 作成スタック
 // CrossRegion 作成時には、envに必ずregionを作成する必要があり
 const pipelineStack = new PipeLineStack(app, 'PipeLineStack', {
@@ -113,14 +99,12 @@ const pipelineStack = new PipeLineStack(app, 'PipeLineStack', {
     account: process.env.TOOLING_ACCOUNT,  // Tooling Account 
     region: process.env.TOOLING_ACCOUNT_REGION,  // Tooling Accountのリージョン
   },
-  // toolingKmsArn: process.env.TOOLING_REGION_KEY_ARN || "",
-  // tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
+  toolingKmsArn: process.env.TOOLING_REGION_KEY_ARN || "",
+  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
   tenantAccount: process.env.TENANT_ACCOUNT || "",
   tenantRegion: process.env.TENANT_ACCOUNT_REGION || "",
   toolingArtifactStore: process.env.TOOLING_REGION_BUCKET || "",
   tenantArtifactStore: process.env.TENANT_REGION_BUCKET || "",
-  toolingKeyName: toolingKmsKey,
-  tenantKeyName: tenantKmsKey
 });
 
 // PipelineStackで作られる全てのAWSリソースにタグをアタッチ
@@ -138,7 +122,7 @@ const crossAccountRoleStack = new CrossAccountRoleStack(app, 'CrossAccountRoleSt
   env: {
     region: process.env.TENANT_ACCOUNT_REGION
   },
-  tenantKeyName: tenantKmsKey,
+  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
   tenantArtifactStore: process.env.TENANT_REGION_BUCKET || "",
   toolingAccount: process.env.TOOLING_ACCOUNT || "",
   tenantAccount: process.env.TENANT_ACCOUNT || "",

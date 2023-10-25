@@ -13,17 +13,17 @@ interface CrossAccountRoleProps extends cdk.StackProps {
 	toolingAccount: string,
 	tenantAccount: string,
 	tenantRegion: string,
-	tenantKeyName: string
+	tenantKmsArn: string
 }
 
 export class CrossAccountRoleStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: CrossAccountRoleProps) {
       super(scope, id, props);
 
-    // Tooling AccountのKms Key アクセスポリシー
+    	// Tooling AccountのKms Key アクセスポリシー
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:kms:${props.tenantRegion}:${props.toolingAccount}:alias/` + props.tenantKeyName
+				props.tenantKmsArn
 			],
 			actions: [
 				'kms:Decrypt',

@@ -29,7 +29,7 @@ export class KmsStack extends cdk.Stack {
             pendingWindow: cdk.Duration.days(7),
             alias: props.keyName,
             description: 'KMS key for ' + props.keyName,
-            enableKeyRotation: false,
+            enableKeyRotation: false,            
         });
 
         new cdk.CfnOutput(this, props.keyName + ' Arn', {
