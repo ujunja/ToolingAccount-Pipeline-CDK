@@ -52,6 +52,7 @@ cdk init --language typescript
  - TENANT_ACCOUNT
  - TENANT_ACCOUNT_REGION
  - TENANT_REGION_BUCKET
+
 #### KMSキー作成後
  - TENANT_REGION_KEY_ARN
  - TOOLING_REGION_KEY_ARN
@@ -76,25 +77,36 @@ cdk init --language typescript
  - CodeBuildRole: CodeBuildのロール名
  - PipelineName: CodePipeline名
 
-## CDK デプロイ手順
+## CDKデプロイ手順
 ```bash
-※ ★Tooling Account★で実行
-※ KMS Key作成
-cdk deploy KmsStack TenantKmsStack 
-※ KMS Key ARN取得
-aws kms describe-key --key-id alias/tenantKmsKey --region ${toolingアカウントのリージョン}
-aws kms describe-key --key-id alias/tenantKmsKey --region ${tenantアカウントのリージョン}
-※ KMS Key ARNを環境変数に設定
-SET TENANT_REGION_KEY_ARN=KMS Key ARN取得の結果を参照してください。
-SET TOOLING_REGION_KEY_ARN=KMS Key ARN取得の結果を参照してください。
-※ IAM, ArtifactStore作成
-cdk deploy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack 
+
 ※ ★Tenant Account★で実行 → 事前にcredentials設定(TenantAccount用)をしてください。
 ※ CrossAccountRole作成
 cdk deploy CrossAccountRoleStack --profile tenant
+
+※ ★Tooling Account★で実行
+※ KMS Key作成
+cdk deploy KmsStack TenantKmsStack 
+
+※ KMS Key ARN取得
+aws kms describe-key --key-id alias/tenantKmsKey --region ${toolingアカウントのリージョン}
+aws kms describe-key --key-id alias/tenantKmsKey --region ${tenantアカウントのリージョン}
+
+※ KMS Key ARNを環境変数に設定
+SET TENANT_REGION_KEY_ARN=KMS Key ARN取得の結果を参照してください。
+SET TOOLING_REGION_KEY_ARN=KMS Key ARN取得の結果を参照してください。
+
+※ ★Tenant Account★で実行 → 事前にcredentials設定(TenantAccount用)をしてください。
+※ TenantアカウントのCrossRoleとDeploymentRoleにKMS復号化付与
+cdk deploy TenantKmsPolicyStack --profile tenant
+
+※ IAM, ArtifactStore作成
+cdk deploy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack 
+
 ※ ★Tooling Account★で実行
 ※ CodePipeline作成
 cdk deploy PipeLineStack
+
 # binディレクトリのcdk-app.tsで指定したスタック名で特定のスタックだけ実行することができる。 
 ```
 ## CDK 削除
@@ -103,8 +115,9 @@ cdk deploy PipeLineStack
 cdk destroy --all
 ※ 一部削除
 cdk destroy スタック名
-cdk destroy PipeLineStack
 cdk destroy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack
+cdk destroy TenantKmsPolicyStack --profile tenant
+cdk destroy KmsStack TenantKmsStack 
 cdk destroy CrossAccountRoleStack --profile tenant
 ```
 

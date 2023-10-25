@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Key } from 'aws-cdk-lib/aws-kms';
-import { ArnPrincipal, PolicyStatement, Role} from 'aws-cdk-lib/aws-iam';
+import { AccountPrincipal, Role, User} from 'aws-cdk-lib/aws-iam';
 
 /**
  * スタック属性
@@ -10,8 +10,9 @@ import { ArnPrincipal, PolicyStatement, Role} from 'aws-cdk-lib/aws-iam';
  * @extends {StackProps}
  */
 interface KmsProps extends cdk.StackProps {
-	tenantAccount: string,
-    keyName: string
+    keyName: string,
+    tenantAccount: string,
+    tenantCheck: boolean
 }
 
 export class KmsStack extends cdk.Stack {
@@ -31,6 +32,35 @@ export class KmsStack extends cdk.Stack {
             description: 'KMS key for ' + props.keyName,
             enableKeyRotation: false,            
         });
+
+        if (props.tenantCheck) {
+            // TenantAccountのCrossAccountロール = Deploy-Tokyo Action Stageのロール
+            const CrossAccountRole = Role.fromRoleArn(
+                this,
+                'CrossAccountRoleInput',
+                `arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('CrossAccountRole')}`,
+                {
+                  mutable: false
+                }
+            )
+        
+            // Tenant AccountのCfnロール
+            const TenantCloudFormationRole = Role.fromRoleArn(
+                this,
+                'TenantCfnDeploymentRoleInput',
+                `arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('DeploymentRole')}`,
+                {
+                  mutable: false,
+                }
+            );
+            const toolingAccountRootPrincipal = new AccountPrincipal(props.env?.account)
+            // const tenantUserPrincipal = User.fromUserArn(this, "TenantUserArn", `arn:aws:iam::${props.tenantAccount}:user/${this.node.tryGetContext('tenantUser')}`)
+        
+            key.grantEncryptDecrypt(CrossAccountRole)
+            key.grantEncryptDecrypt(TenantCloudFormationRole)
+            key.grantEncryptDecrypt(toolingAccountRootPrincipal)
+            // key.grantEncryptDecrypt(tenantUserPrincipal)
+        }
 
         new cdk.CfnOutput(this, props.keyName + ' Arn', {
             value: key.keyArn,

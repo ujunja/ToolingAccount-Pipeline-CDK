@@ -20,20 +20,6 @@ export class CrossAccountRoleStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: CrossAccountRoleProps) {
       super(scope, id, props);
 
-    	// Tooling AccountのKms Key アクセスポリシー
-		const DecryptKmsPolicy = new PolicyStatement({
-			resources: [
-				props.tenantKmsArn
-			],
-			actions: [
-				'kms:Decrypt',
-				'kms:DescribeKey',
-				'kms:Encrypt',
-				'kms:ReEncrypt*',
-				'kms:GenerateDataKey*'
-			],
-		})
-
 	// Tooling AccountのArtifact Store アクセスポリシー
     const GetTokyoBucketPolicy = new PolicyStatement({
 			resources: [
@@ -68,12 +54,11 @@ export class CrossAccountRoleStack extends cdk.Stack {
 
 		// CrossAccount ロール
 		const CrossAccountRole = new Role(this, 'Cross_Account_Role', {
-			roleName: 'CDK-Cross-Account-Role',
+			roleName: this.node.tryGetContext('CrossAccountRole'),
 			assumedBy: new AccountPrincipal(props.toolingAccount)
 		})
 
 		// CrossAccount ロールにポリシーをアタッチ
-		CrossAccountRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CrossAccountRole.addToPrincipalPolicy(GetTokyoBucketPolicy);
 		CrossAccountRole.addToPrincipalPolicy(CrossAccountPassRolePolicy);
 		CrossAccountRole.addToPrincipalPolicy(CloudFormationDeploymentRole);
@@ -90,7 +75,18 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('IAMFullAccess'));
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('ResourceGroupsandTagEditorFullAccess'));
 		CfnDeploymentRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('CloudWatchApplicationInsightsFullAccess'));
-		CfnDeploymentRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CfnDeploymentRole.addToPrincipalPolicy(GetTokyoBucketPolicy);
+
+		new cdk.CfnOutput(this, this.node.tryGetContext('CrossAccountRole'), {
+			value: CrossAccountRole.roleArn,
+			exportName: this.node.tryGetContext('CrossAccountRole'),
+			description: "CloudFormation DeploymentRole of Tenant Account"
+		});
+
+		new cdk.CfnOutput(this, this.node.tryGetContext('DeploymentRole'), {
+			value: CfnDeploymentRole.roleArn,
+			exportName: this.node.tryGetContext('DeploymentRole'),
+			description: "CloudFormation DeploymentRole of Tenant Account"
+		 });
   }
 }  

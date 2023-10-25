@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Key } from 'aws-cdk-lib/aws-kms';
-import { ArnPrincipal, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
+import { AccountPrincipal, ArnPrincipal, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Repository } from 'aws-cdk-lib/aws-codecommit';
 import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
@@ -52,20 +52,23 @@ export class PipeLineStack extends cdk.Stack {
     //ロール向けKms復号化Policy
     //必ず、CrossAccountRoleStackが実行して、
     //tenantアカウントにCrossAccountRoleとCloudFromationロールを作成した後、KMSポリシーに付与可能
-    const tenantDecryptPolicy = new PolicyStatement({
-      actions: [
-          'kms:Decrypt',
-          'kms:DescribeKey',
-      ],
-      principals: [
-        new ArnPrincipal(`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('CrossAccountRole')}`),
-        new ArnPrincipal(`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('DeploymentRole')}`)
-      ],
-      resources: [
-          "*"
-      ]
-    })
-    
+    // const tenantDecryptPolicy = new PolicyStatement({
+    //   actions: [
+    //       'kms:Decrypt',
+    //       'kms:DescribeKey',
+    //   ],
+    //   principals: [
+    //     new ArnPrincipal(`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('CrossAccountRole')}`),
+    //     new ArnPrincipal(`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('DeploymentRole')}`)
+    //   ],
+    //   resources: [
+    //       "*"
+    //   ]
+    // })
+
+    const toolingAccountRootPrincipal = new AccountPrincipal(props.env?.account)
+    const tenantAccountRootPrincipal = new AccountPrincipal(props.tenantAccount)
+
     //TOOLING KMS KEY
     const toolingKey = Key.fromKeyArn(
       this,
@@ -81,7 +84,10 @@ export class PipeLineStack extends cdk.Stack {
     );
 
     //tenantアカウントは、tenantリージョンのみ復号化権限必要
-    tenantKey.addToResourcePolicy(tenantDecryptPolicy)
+    tenantKey.grantDecrypt(CrossAccountRole)
+    tenantKey.grantDecrypt(TenantCloudFormationRole)
+    tenantKey.grantDecrypt(toolingAccountRootPrincipal)
+    tenantKey.grantDecrypt(tenantAccountRootPrincipal)
 
     // CodePipeline Role
     const CodepipelineRole = Role.fromRoleArn(
@@ -161,8 +167,6 @@ export class PipeLineStack extends cdk.Stack {
     );
     
     // Tooling AccoungのSingapore KMS KeyにTenant AccountのTenantCloudFormationRole復号化権限付与
-    // tokyoKey.grantDecrypt(TenantCloudFormationRole);
-
     const artifactStoreTooling = Bucket.fromBucketAttributes(this, 'artifactStoreTooling', {
       bucketName: props.toolingArtifactStore,
       region: props.env?.region,

@@ -6,11 +6,41 @@ import { IamStack } from '../lib/iam-stack';
 import { CrossAccountRoleStack } from '../lib/cross-account-role';
 import { ArtifactStack } from '../lib/artifact-stack';
 import { KmsStack } from '../lib/kms-key';
+import { TenantKmsPolicyStack } from '../lib/tenant-kms-policy';
 
 const app = new cdk.App();
 
 const toolingKmsKey = 'toolingKmsKey'
 const tenantKmsKey = 'tenantKmsKey'
+
+// Tenat Accountで実行
+// Tenant AccountのCrossAccountロール作成スタック
+const crossAccountRoleStack = new CrossAccountRoleStack(app, 'CrossAccountRoleStack', {
+  env: {
+    region: process.env.TENANT_ACCOUNT_REGION
+  },
+  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
+  tenantArtifactStore: process.env.TENANT_REGION_BUCKET || "",
+  toolingAccount: process.env.TOOLING_ACCOUNT || "",
+  tenantAccount: process.env.TENANT_ACCOUNT || "",
+  tenantRegion: process.env.TENANT_ACCOUNT_REGION || ""
+})
+
+cdk.Tags.of(crossAccountRoleStack).add('Project', 'cdk-lswn');
+cdk.Tags.of(crossAccountRoleStack).add('Class', 'CrossAccountRole');
+
+// Tenat Accountで実行
+// Tenant AccountのKMS KEY 復号化のポリシー作成スタック
+new TenantKmsPolicyStack(app, 'TenantKmsPolicyStack', {
+  env: {
+    region: process.env.TENANT_ACCOUNT_REGION
+  },
+  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
+})
+
+cdk.Tags.of(crossAccountRoleStack).add('Project', 'cdk-lswn');
+cdk.Tags.of(crossAccountRoleStack).add('Class', 'TenantKmsPolicyStack');
+
 
 // Tolling AccountのIAMロール作成スタック
 const toolingKmsStack = new KmsStack(app, 'KmsStack', {
@@ -18,8 +48,9 @@ const toolingKmsStack = new KmsStack(app, 'KmsStack', {
     account: process.env.TOOLING_ACCOUNT || "",
     region: process.env.TOOLING_ACCOUNT_REGION || ""
   },
-  tenantAccount: process.env.TENANT_ACCOUNT || "",
-  keyName: toolingKmsKey
+  tenantCheck: false,
+  keyName: toolingKmsKey,
+  tenantAccount: process.env.TENANT_ACCOUNT || ""
 });
 
 //kamStackで作られる全てのAWSリソースにタグをアタッチ
@@ -32,8 +63,9 @@ const tenantKmsStack = new KmsStack(app, 'TenantKmsStack', {
     account: process.env.TOOLING_ACCOUNT || "",
     region: process.env.TENANT_ACCOUNT_REGION || ""
   },
-  tenantAccount: process.env.TENANT_ACCOUNT || "",
-  keyName: tenantKmsKey
+  tenantCheck: true,
+  keyName: tenantKmsKey,
+  tenantAccount: process.env.TENANT_ACCOUNT || ""
 });
 
 //kamStackで作られる全てのAWSリソースにタグをアタッチ
@@ -114,22 +146,4 @@ cdk.Tags.of(pipelineStack).add('Class', 'Pipeline1');
 pipelineStack.addDependency(toolingRegionArtifactStack);
 pipelineStack.addDependency(tenantRegionArtifactStack);
 pipelineStack.addDependency(iamStack);
-// pipelineStack.addDependency(parameterStoreStack);
-
-// Tenat Accountで実行
-// Tenant AccountのCrossAccountロール作成スタック
-const crossAccountRoleStack = new CrossAccountRoleStack(app, 'CrossAccountRoleStack', {
-  env: {
-    region: process.env.TENANT_ACCOUNT_REGION
-  },
-  tenantKmsArn: process.env.TENANT_REGION_KEY_ARN || "",
-  tenantArtifactStore: process.env.TENANT_REGION_BUCKET || "",
-  toolingAccount: process.env.TOOLING_ACCOUNT || "",
-  tenantAccount: process.env.TENANT_ACCOUNT || "",
-  tenantRegion: process.env.TENANT_ACCOUNT_REGION || ""
-})
-
-cdk.Tags.of(crossAccountRoleStack).add('Project', 'cdk-lswn');
-cdk.Tags.of(crossAccountRoleStack).add('Class', 'CrossAccountRole');
-
 

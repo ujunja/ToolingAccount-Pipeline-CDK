@@ -28,6 +28,6 @@
     "CodeBuildRole": "CDK-CodeBuild-Service-Role",
     "PipelineName": "LswnPipeline",
     "toolingTemplate": "tooling-package-template.yaml",
-    "tenantTemplate": "tenant-package-template.yaml"
+    "tenantTemplate": "tenant-package-template.yaml"    
   }
 }
