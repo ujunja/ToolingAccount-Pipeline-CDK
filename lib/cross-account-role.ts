@@ -2,14 +2,19 @@ import * as cdk from 'aws-cdk-lib';
 import { AccountPrincipal, ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
+/**
+ * スタック属性
+ * @export
+ * @interface CrossAccountRoleProps
+ * @extends {StackProps}
+ */
 interface CrossAccountRoleProps extends cdk.StackProps {
-	tenantKmsArn: string,
 	tenantArtifactStore: string,
 	toolingAccount: string,
 	tenantAccount: string,
 	tenantRegion: string,
-  }
-  
+	tenantKeyName: string
+}
 
 export class CrossAccountRoleStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: CrossAccountRoleProps) {
@@ -18,7 +23,7 @@ export class CrossAccountRoleStack extends cdk.Stack {
     // Tooling AccountのKms Key アクセスポリシー
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				props.tenantKmsArn
+				`arn:aws:kms:${props.tenantRegion}:${props.toolingAccount}:alias/` + props.tenantKeyName
 			],
 			actions: [
 				'kms:Decrypt',
@@ -29,7 +34,7 @@ export class CrossAccountRoleStack extends cdk.Stack {
 			],
 		})
 
-		// Tooling AccountのArtifact Store アクセスポリシー
+	// Tooling AccountのArtifact Store アクセスポリシー
     const GetTokyoBucketPolicy = new PolicyStatement({
 			resources: [
 				`arn:aws:s3:::${props.tenantArtifactStore}/*`
@@ -44,7 +49,6 @@ export class CrossAccountRoleStack extends cdk.Stack {
 		// CloudFormaton DeploymentロールにCrossAccountの権限をPassするポリシー
 		const CrossAccountPassRolePolicy = new PolicyStatement({
 			resources: [
-				// `arn:aws:iam::${props.toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
 				`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
 			],
 			actions: [

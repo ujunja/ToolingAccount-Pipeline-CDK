@@ -51,6 +51,7 @@ cdk init --language typescript
  - TOOLING_REGION_BUCKET
  - TENANT_ACCOUNT
  - TENANT_ACCOUNT_REGION
+ - TENANT_ACCOUNT_USER
  - TENANT_REGION_KEY_ARN
  - TENANT_REGION_BUCKET
 
@@ -69,7 +70,8 @@ cdk init --language typescript
 ## CDK デプロイ手順
 ```bash
 ※ Tooling Accountで実行
-cdk deploy IamStack ParameterStoreStack ToolingRegionArtifactStack TenantRegionArtifactStack
+cdk deploy KmsStack TenantKmsStack 
+cdk deploy IamStack ToolingRegionArtifactStack TenantRegionArtifactStack 
 ※ Tenant Accountで実行 → 事前にcredentials設定(TenantAccount用)をしてください。
 cdk deploy CrossAccountRoleStack --profile tenant
 ※ Tooling Accountで実行

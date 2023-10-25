@@ -1,0 +1,30 @@
+{
+    "Version": "2012-10-17",
+    "Id": "TenantAccountAccess",
+    "Statement": [
+        {
+            "Sid": "Enable IAM User Permissions",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::199836234156:root"
+            },
+            "Action": "kms:*",
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::972565036278:role/CDK-CloudFormation-Deployment-Role",
+                    "arn:aws:iam::972565036278:role/CDK-Cross-Account-Role",
+                    "arn:aws:iam::972565036278:role/TenantCrossAccountRole"
+                ]
+            },
+            "Action": [
+                "kms:Decrypt",
+                "kms:DescribeKey"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

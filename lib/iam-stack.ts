@@ -2,9 +2,15 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Role, PolicyStatement, ServicePrincipal, AccountPrincipal } from 'aws-cdk-lib/aws-iam';
 
+/**
+ * スタック属性
+ * @export
+ * @interface IamProps
+ * @extends {StackProps}
+ */
 interface IamProps extends cdk.StackProps {
-    toolingKmsArn: string,
-    tenantKmsArn: string,
+	toolingKeyName: string,
+	tenantKeyName: string
 	tenantAccount: string,
 	tenantRegion: string,
 	toolingArtifactStore: string,
@@ -15,14 +21,11 @@ export class IamStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: IamProps) {
     super(scope, id, props);
 
-		const toolingAccount : string = props.env?.account || ""
-		const toolingRegion : string = props.env?.region || ""
-
 		//CodeBuildのログ機能を有効化する。
 		//CodePipelineのでファイルロールに入ります。
 		const CodeBuildLogPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:logs:${toolingRegion}:${props.env?.account}:log-group:/aws/codebuild/${this.node.tryGetContext('CodeBuildProName')}*:*`
+				`arn:aws:logs:${props.env?.region}:${props.env?.account}:log-group:/aws/codebuild/${this.node.tryGetContext('CodeBuildProName')}*:*`
 			],
 			actions: [
 				'logs:CreateLogGroup',
@@ -34,7 +37,7 @@ export class IamStack extends cdk.Stack {
 		//CodeCoomit RepoからSourceをもらうポリシー
 		const CodeBuildPullPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codecommit:${toolingRegion}:${toolingAccount}:${this.node.tryGetContext('CodeCommitRepoName')}`
+				`arn:aws:codecommit:${props.env?.region}:${props.env?.account}:${this.node.tryGetContext('CodeCommitRepoName')}`
 			],
 			actions: [
 				'codecommit:GitPull'
@@ -44,8 +47,8 @@ export class IamStack extends cdk.Stack {
 		//Kms復号化Policy
 		const DecryptKmsPolicy = new PolicyStatement({
 			resources: [
-				props.toolingKmsArn,
-				props.tenantKmsArn
+				`arn:aws:kms:${props.env?.region}:${props.env?.account}:alias/` + props.toolingKeyName,
+				`arn:aws:kms:${props.tenantRegion}:${props.env?.account}:alias/` + props.tenantKeyName
 			],
 			actions: [
 				'kms:Decrypt',
@@ -59,7 +62,7 @@ export class IamStack extends cdk.Stack {
 		//CodeCoomit Action Stage Policy
 		const CodeCommitActionPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codecommit:${toolingRegion}:${toolingAccount}:${this.node.tryGetContext('CodeCommitRepoName')}`
+				`arn:aws:codecommit:${props.env?.region}:${props.env?.account}:${this.node.tryGetContext('CodeCommitRepoName')}`
 			],
 			actions: [
 				'codecommit:GetBranch',
@@ -73,7 +76,7 @@ export class IamStack extends cdk.Stack {
 		//CodeBuild Action Stage Policy
 		const CodeBuildActionPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:codebuild:${toolingRegion}:${toolingAccount}:project/${this.node.tryGetContext('CodeBuildProName')}`
+				`arn:aws:codebuild:${props.env?.region}:${props.env?.account}:project/${this.node.tryGetContext('CodeBuildProName')}`
 			],
 			actions: [
 				'codebuild:BatchGetBuilds',
@@ -86,7 +89,7 @@ export class IamStack extends cdk.Stack {
 		//PassRole
 		const CloudformationActionPassRolePolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:iam::${toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`
+				`arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('DeploymentRole')}`
 			],
 			actions: [
 				'iam:PassRole'
@@ -95,7 +98,7 @@ export class IamStack extends cdk.Stack {
 		//CloudFormation
 		const CloudformationActionDeployPolicy = new PolicyStatement({
 			resources: [
-				`arn:aws:cloudformation:${toolingRegion}:${toolingAccount}:stack/*`
+				`arn:aws:cloudformation:${props.env?.region}:${props.env?.account}:stack/*`
 			],
 			actions: [
 				'cloudformation:*'
@@ -118,17 +121,6 @@ export class IamStack extends cdk.Stack {
 			]
 		})
 
-		//東京リージョンのS3バケットにアプロードするポリシー(Tenant)
-		//도쿄 리전 버켓에 업로드하는 정책
-		const UploadTenantBucketPolicy = new PolicyStatement({
-			resources: [
-				`arn:aws:s3:::${props.tenantArtifactStore}/*`
-			],
-			actions: [
-				's3:PutObject'
-			],
-		})
-
 		//シンガポールリージョンのS3バケットから持ち出しするポリシー(Tooling)
 		//싱가포르 리전의 버킷으로부터 오브젝트를 가져오는 정책 
 		const GetToolingBucketPolicy = new PolicyStatement({
@@ -142,10 +134,10 @@ export class IamStack extends cdk.Stack {
 
 		const CodepipelineAssumeRole = new PolicyStatement({
 			resources: [
-				`arn:aws:iam::${toolingAccount}:role/${this.node.tryGetContext('CommitActionRole')}`,
-				`arn:aws:iam::${toolingAccount}:role/${this.node.tryGetContext('BuildActionRole')}`,
-				`arn:aws:iam::${toolingAccount}:role/${this.node.tryGetContext('DeploymentActionRole')}`,
-				`arn:aws:iam::${toolingAccount}:role/${this.node.tryGetContext('DeploymentRole')}`,
+				`arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('CommitActionRole')}`,
+				`arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('BuildActionRole')}`,
+				`arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('DeploymentActionRole')}`,
+				`arn:aws:iam::${props.env?.account}:role/${this.node.tryGetContext('DeploymentRole')}`,
 				`arn:aws:iam::${props.tenantAccount}:role/${this.node.tryGetContext('CrossAccountRole')}`
 			],
 			actions: [
@@ -168,7 +160,7 @@ export class IamStack extends cdk.Stack {
 		//CodeCommit Action Stagロール
 		const CodeCommitActionRole = new Role(this, 'CodeCommitAction_Role', {
 			roleName: this.node.tryGetContext('CommitActionRole'),
-			assumedBy: new AccountPrincipal(`${toolingAccount}`)
+			assumedBy: new AccountPrincipal(`${props.env?.account}`)
 		})
 
 		CodeCommitActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
@@ -179,7 +171,7 @@ export class IamStack extends cdk.Stack {
 		//CodeBuild Action Stageロール
 		const CodeBuildActionRole = new Role(this, 'CodeBuildAction_Role', {
 			roleName: this.node.tryGetContext('BuildActionRole'),
-			assumedBy: new AccountPrincipal(`${toolingAccount}`)
+			assumedBy: new AccountPrincipal(`${props.env?.account}`)
 		})
 
 		CodeBuildActionRole.addToPrincipalPolicy(CodeBuildActionPolicy);
@@ -187,7 +179,7 @@ export class IamStack extends cdk.Stack {
 		//Deploymeny Action Stage 역할
 		const CloudformationActionRole = new Role(this, 'DeploymentActionRole', {
 			roleName: this.node.tryGetContext('DeploymentActionRole'),
-			assumedBy: new AccountPrincipal(`${toolingAccount}`)
+			assumedBy: new AccountPrincipal(`${props.env?.account}`)
 		})
 
 		CloudformationActionRole.addToPrincipalPolicy(DecryptKmsPolicy);
@@ -225,11 +217,5 @@ export class IamStack extends cdk.Stack {
 		CfnDeploymentRole.addToPrincipalPolicy(DecryptKmsPolicy);
 		CfnDeploymentRole.addToPrincipalPolicy(GetToolingBucketPolicy);
 
-
-		//이걸 사용하려면 Tooling Account CodeBuild, CloudFormation 공유한다는 전제조건이 없어야만 한다
-		new cdk.CfnOutput(this, 'CodeCommitActionRoleArnOutPut', {
-			value: CodeCommitActionRole.roleArn,
-			exportName: 'CodeCommitActionRoleArn',
-		  });
   }
 }
